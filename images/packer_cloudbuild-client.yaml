@@ -25,4 +25,5 @@ steps:
       -var project_id=${_PROJECT_ID} \
       -var zone=${_ZONE} \
       -var use_iap=${_USE_IAP} \
+      -var machine_type=${_MACHINE_TYPE} \
       daos-client-image.pkr.hcl

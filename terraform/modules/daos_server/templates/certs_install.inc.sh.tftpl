@@ -1,8 +1,8 @@
 %{ if !allow_insecure }
 echo "BEGIN: DAOS certificate installation"
 
-DAOS_CLIENT_INSTALLED=$(if rpm -q --quiet daos-client;then echo true;else echo false;fi)
-DAOS_SERVER_INSTALLED=$(if rpm -q --quiet daos-server;then echo true;else echo false;fi)
+#DAOS_CLIENT_INSTALLED=$(if rpm -q --quiet daos-client;then echo true;else echo false;fi)
+#DAOS_SERVER_INSTALLED=$(if rpm -q --quiet daos-server;then echo true;else echo false;fi)
 
 get_ca_from_sm() {
   # Get the daosCA.tar.gz file from Secret Manager
@@ -75,20 +75,20 @@ mkdir -p /etc/daos/certs
 echo "Copying certs and setting permissions"
 
 # CLIENT CERTS
-if [[ "$${DAOS_CLIENT_INSTALLED}" == "true" ]]; then
+#if [[ "$${DAOS_CLIENT_INSTALLED}" == "true" ]]; then
   cp /var/daos/daosCA/certs/daosCA.crt /etc/daos/certs/
   cp /var/daos/daosCA/certs/agent.* /etc/daos/certs/
   chown -R daos_agent:daos_agent /etc/daos/certs
   chmod 0755 /etc/daos/certs
   chmod 0644 /etc/daos/certs/*.crt
   chmod 0600 /etc/daos/certs/*.key
-fi
+#fi
 
 # SERVER CERTS
 # if the daos-client and daos-server is installed we assume we are on a daos
 # server instance and in that case the permissions for the daos_agent certs
 # will be modified
-if [[ "$${DAOS_SERVER_INSTALLED}" == "true" ]]; then
+#if [[ "$${DAOS_SERVER_INSTALLED}" == "true" ]]; then
   # On GCP daos_server runs as root because instances don't have IOMMU
   # So server certs and keys should be owned by root
   cp /var/daos/daosCA/certs/daosCA.crt /etc/daos/certs/
@@ -107,7 +107,7 @@ if [[ "$${DAOS_SERVER_INSTALLED}" == "true" ]]; then
   chmod 0644 /etc/daos/certs/*.crt
   chmod 0600 /etc/daos/certs/*.key
   chmod 0644 /etc/daos/certs/clients/*
-fi
+#fi
 
 # INSTALL ADMIN CERTS ON CLIENTS AND SERVERS
 cp /var/daos/daosCA/certs/admin.* /etc/daos/certs/

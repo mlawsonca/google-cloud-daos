@@ -42,10 +42,10 @@ log.fatal() { log "${1}" "FATAL" ; }
 # END: Logging variables and functions
 
 install_pkgs_centos7() {
-  log.info "Installing Development Tools"
+  log.info "Installing Development Tools for centos_7"
   yum group install -y "Development Tools"
 
-  log.info "Installing additional packages"
+  log.info "Installing additional packages for almalinux_8|centos_8|rhel_8|rocky_8"
   yum install -y bzip2-devel clustershell git jq \
     libarchive-devel libuuid-devel openssl-devel patch rsync wget
 }

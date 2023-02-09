@@ -17,6 +17,9 @@
 set -eo pipefail
 trap 'echo "Hit an unexpected and unchecked error. Exiting."' ERR
 
+
+./copy_results_to_local
+
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 
 # shellcheck source=_log.sh
@@ -60,7 +63,7 @@ fi
 
 # Clean up the ./tmp directory
 if [[ -d "${IO500_TMP}" ]]; then
-  rm -r "${IO500_TMP}"
+  sudo rm -r "${IO500_TMP}"
 fi
 
 if [[ -f "${SCRIPT_DIR}/login" ]]; then

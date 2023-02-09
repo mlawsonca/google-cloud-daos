@@ -43,12 +43,11 @@ fi
 OCLASS_1="S1"
 OCLASS_X="SX"
 DAOS_CONT_REPLICATION_FACTOR="rf:0"
-TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf0-io500"
-
+TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf0-hyper-io500"
 #OCLASS_1="EC_2P1G1"
 #OCLASS_X="EC_2P1GX"
 #DAOS_CONT_REPLICATION_FACTOR="rf:1,ec_cell_sz:131072"
-#TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf1-io500"
+#TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf1-hyper-io500"
 
 IO500_STONEWALL_TIME=60
 IO500_INI="io500-sc22.config-template.daos.ini"
@@ -75,13 +74,13 @@ unmount_defuse() {
   if findmnt --target "${IO500_DFUSE_DIR}" > /dev/null; then
     log.info "Unmount DFuse mountpoint ${IO500_DFUSE_DIR}"
 
-    clush --hostfile=hosts_clients --dsh \
+    clush --hostfile=hosts_servers --dsh \
       "sudo fusermount3 -u ${IO500_DFUSE_DIR}"
 
-    clush --hostfile=hosts_clients --dsh \
+    clush --hostfile=hosts_servers --dsh \
       "rm -r ${IO500_DFUSE_DIR}"
 
-    clush --hostfile=hosts_clients --dsh \
+    clush --hostfile=hosts_servers --dsh \
       "mount | sort | grep dfuse || true"
 
     log.info "fusermount3 complete!"
@@ -161,7 +160,6 @@ create_container() {
     daos container create --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" --label="${DAOS_CONT_LABEL}"
   fi
 
-
   log.info "Show container properties"
   log.debug "COMMAND: daos cont get-prop \"${DAOS_POOL_LABEL}\" \"${DAOS_CONT_LABEL}\""
   daos cont get-prop "${DAOS_POOL_LABEL}" "${DAOS_CONT_LABEL}"
@@ -173,10 +171,10 @@ mount_dfuse() {
   else
     log.info "Use dfuse to mount ${DAOS_CONT_LABEL} on ${IO500_DFUSE_DIR}"
 
-    clush --hostfile=hosts_clients --dsh \
+    clush --hostfile=hosts_servers --dsh \
       "mkdir -p ${IO500_DFUSE_DIR}"
 
-    clush --hostfile=hosts_clients --dsh \
+    clush --hostfile=hosts_servers --dsh \
       "dfuse -S --pool=${DAOS_POOL_LABEL} --container=${DAOS_CONT_LABEL} --mountpoint=${IO500_DFUSE_DIR}"
 
     sleep 10
@@ -199,11 +197,11 @@ io500_prepare() {
   export DAOS_POOL="${DAOS_POOL_LABEL}"
   export DAOS_CONT="${DAOS_CONT_LABEL}"
   export MFU_POSIX_TS=1
-  #account for the fact that hyperthreads are enabled -> divide by 2 to get 1 client per physical core
-  #divide by 2 again 
-  export IO500_NP=$(( DAOS_CLIENT_INSTANCE_COUNT * $(nproc --all) / 4 ))
-  export IO500_PPN=$(( $(nproc --all) / 4 ))
-  export MPI_RUN_OPTS="--bind-to socket"
+  export IO500_PPN=4
+  export IO500_NP=$((IO500_PPN * ${DAOS_SERVER_INSTANCE_COUNT}))
+  export I_MPI_PIN_PROCESSOR_LIST=0,1,22,23
+  export MPI_RUN_OPTS=""
+
 
   # shellcheck disable=SC2153
   envsubst < "${IO500_INI}" > temp.ini
@@ -228,7 +226,7 @@ run_io500() {
   echo "IO500_NP: ${IO500_NP}"
   echo "IO500_PPN: ${IO500_PPN}"
   mpirun -np ${IO500_NP} -ppn ${IO500_PPN} \
-   --hostfile "${SCRIPT_DIR}/hosts_clients" \
+   --hostfile "${SCRIPT_DIR}/hosts_servers" \
     ${MPI_RUN_OPTS} "${IO500_DIR}/io500" temp.ini
   log.info "IO500 run complete!"
 }
@@ -255,7 +253,6 @@ process_results() {
   for server in $(cat hosts_servers);do
     SERVER_FILES_DIR="${RESULT_SERVER_FILES_DIR}/${server}"
     mkdir -p "${SERVER_FILES_DIR}/etc/daos"
-    #scp "${server}:/etc/daos/*.yaml" "${SERVER_FILES_DIR}/etc/daos/"
     scp "${server}:/etc/daos/*.yml" "${SERVER_FILES_DIR}/etc/daos/"
     mkdir -p "${SERVER_FILES_DIR}/var/daos"
     scp "${server}:/var/daos/*.log*" "${SERVER_FILES_DIR}/var/daos/"

@@ -44,8 +44,7 @@ if  [ "${USE_PROMETHEUS}" = true ]; then
     clush -n --hostfile="${SERVER_HOSTS_FILE}" "[[ -f $HOME/prometheus ]] && $HOME/prometheus --config.file=$HOME/.prometheus.yml &> $HOME/prometheus_output.txt" &
 fi
 
-CLIENT_HOSTS_FILE="${SCRIPT_DIR}/hosts_clients"
-clush --hostfile="${CLIENT_HOSTS_FILE}" --dsh 'sudo systemctl restart daos_agent'
+clush --hostfile="${SERVER_HOSTS_FILE}" --dsh 'sudo systemctl restart daos_agent'
 
 # shellcheck disable=SC2016
 clush --hostfile="${SERVER_HOSTS_FILE}" --dsh 'while /bin/netstat -an | /bin/grep \:10001 | /bin/grep -q LISTEN; [ $? -ne 0 ]; do let TRIES-=1; if [ $TRIES -gt 1 ]; then echo "waiting ${TRIES}"; sleep $WAIT;else echo "Timed out";break; fi;done'

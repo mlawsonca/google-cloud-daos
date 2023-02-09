@@ -188,3 +188,9 @@ variable "pools" {
     }))
   }))
 }
+
+variable "daos_version" {
+  description = "What version of DAOS is being used"
+  default     = "2.2.0"
+  type        = string
+}

@@ -218,6 +218,19 @@ install_epel() {
     if rpm -qa | grep -q "epel-release"; then
       log.info "epel-release already installed"
     else
+      if [[ "${OS_VERSION_ID}" == "rocky_8"* ]]; then
+        cat > ${REPO_PATH}/epel.repo << EOF
+[epel]
+name=Extra Packages for Enterprise Linux 8 - $basearch
+# It is much more secure to use the metalink, but if you wish to use a local mirror
+# place its address here.
+baseurl=https://dl.fedoraproject.org/pub/archive/epel/8.5/Everything/x86_64
+enabled=1
+gpgcheck=1
+countme=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
+EOF
+      fi
       log.info "Installing epel-release"
       $PKG_MGR install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${OS_MAJOR_VERSION}.noarch.rpm"
       $PKG_MGR upgrade -y epel-release
@@ -269,13 +282,15 @@ install_daos() {
 main() {
   opts "$@"
   set_os_specific_vars
-  log.info "Installing DAOS v${DAOS_VERSION}"
-  verify_version
   install_epel
   install_misc_pkgs
-  add_daos_repo
-  install_daos
-  log.info "DONE! DAOS v${DAOS_VERSION} installed"
+  if [[ ${DAOS_VERSION} != "2.3.0" ]]; then
+    log.info "Installing DAOS v${DAOS_VERSION}"
+    verify_version
+    add_daos_repo
+    install_daos
+    log.info "DONE! DAOS v${DAOS_VERSION} installed"  
+  fi
 }
 
 main "$@"

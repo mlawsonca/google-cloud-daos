@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 # Copyright 2022 Intel Corporation
 #
@@ -328,7 +329,7 @@ build_images() {
     # When worker pool is specified then region needs to match the one of the pool.
     # Need to parse the correct region to use it instead of the default one "global".
     # Format: projects/{project}/locations/{region}/workerPools/{workerPool}
-    BUILD_WORKER_POOL_ARRAY=("${BUILD_WORKER_POOL//// }")
+    IFS='/' read -r -a BUILD_WORKER_POOL_ARRAY <<< "$BUILD_WORKER_POOL"
     BUILD_REGION="${BUILD_WORKER_POOL_ARRAY[3]}"
     BUILD_OPTIONAL_ARGS+=" --worker-pool=${BUILD_WORKER_POOL}"
 
@@ -343,16 +344,16 @@ build_images() {
   if [[ "${DAOS_INSTALL_TYPE}" =~ ^(all|server)$ ]]; then
     log "Building server image"
     # shellcheck disable=SC2086
-    gcloud builds submit --timeout=1800s \
-    --substitutions="_PROJECT_ID=${GCP_PROJECT},_ZONE=${GCP_ZONE},_DAOS_VERSION=${DAOS_VERSION},_DAOS_REPO_BASE_URL=${DAOS_REPO_BASE_URL},_USE_IAP=${USE_IAP}" \
+    gcloud builds submit --timeout=1800s --region=${GCP_REGION} \
+    --substitutions="_PROJECT_ID=${GCP_PROJECT},_ZONE=${GCP_ZONE},_DAOS_VERSION=${DAOS_VERSION},_DAOS_REPO_BASE_URL=${DAOS_REPO_BASE_URL},_USE_IAP=${USE_IAP},_MACHINE_TYPE=${DAOS_SERVER_MACHINE_TYPE}" \
     --config=packer_cloudbuild-server.yaml ${BUILD_OPTIONAL_ARGS} .
   fi
 
   if [[ "${DAOS_INSTALL_TYPE}" =~ ^(all|client)$ ]]; then
     log "Building client image"
     # shellcheck disable=SC2086
-    gcloud builds submit --timeout=1800s \
-    --substitutions="_PROJECT_ID=${GCP_PROJECT},_ZONE=${GCP_ZONE},_DAOS_VERSION=${DAOS_VERSION},_DAOS_REPO_BASE_URL=${DAOS_REPO_BASE_URL},_USE_IAP=${USE_IAP}" \
+    gcloud builds submit --timeout=1800s --region=${GCP_REGION} \
+    --substitutions="_PROJECT_ID=${GCP_PROJECT},_ZONE=${GCP_ZONE},_DAOS_VERSION=${DAOS_VERSION},_DAOS_REPO_BASE_URL=${DAOS_REPO_BASE_URL},_USE_IAP=${USE_IAP},_MACHINE_TYPE=${DAOS_CLIENT_MACHINE_TYPE}" \
     --config=packer_cloudbuild-client.yaml ${BUILD_OPTIONAL_ARGS} .
   fi
 }

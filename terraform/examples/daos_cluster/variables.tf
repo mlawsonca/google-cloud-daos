@@ -193,6 +193,12 @@ variable "server_pools" {
   }))
 }
 
+variable "daos_version" {
+  description = "What version of DAOS is being used"
+  default     = "2.2.0"
+  type        = string
+}
+
 variable "client_labels" {
   description = "Set of key/value label pairs to assign to daos-client instances"
   type        = any

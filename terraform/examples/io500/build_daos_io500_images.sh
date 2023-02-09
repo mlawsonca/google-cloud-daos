@@ -23,25 +23,46 @@ trap 'echo "Unexpected and unchecked error. Exiting."' ERR
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
-
-CLIENT_OS_FAMILY="daos-client-io500-hpc-centos-7"
-SERVER_OS_FAMILY="daos-server-io500-centos-7"
+# Directory containing config files
+CONFIG_DIR="${CONFIG_DIR:-${SCRIPT_DIR}/config}"
+# Config file in ./config that is used to spin up the environment and configure IO500
+CONFIG_FILE="${CONFIG_FILE:-${CONFIG_DIR}/config.sh}"
+source "${CONFIG_FILE}"
 
 IO500_INSTALL_SCRIPTS_DIR="${SCRIPT_DIR}/install_scripts"
 
-# Ordered list of scripts in $IO500_INSTALL_SCRIPTS_DIR that should be run by
-# packer when building the DAOS client image with IO500 pre-installed.
-INSTALL_SCRIPTS=(
-install_devtools.sh
-install_intel-oneapi.sh
-install_io500-sc22.sh
-)
+if [[ ${DAOS_VERSION} != "2.3.0" ]]; then
+  INSTALL_SCRIPTS_CLIENT=(
+    install_devtools.sh
+    install_intel-oneapi.sh
+    install_io500-sc22.sh
+  )
 
+  INSTALL_SCRIPTS_SERVER=()
+else
+
+  INSTALL_SCRIPTS_CLIENT=(
+    install_devtools.sh
+    install_intel-oneapi.sh
+    build_daos_el8.sh
+    install_io500-sc22.sh
+  )
+
+  INSTALL_SCRIPTS_SERVER=(
+    build_daos_el8.sh
+  )
+fi
 # Reverse the INSTALL_SCRIPTS array
-last=${#INSTALL_SCRIPTS[@]}
-declare -a INSTALL_SCRIPTS_REVERSED
-for (( i=last-1 ; i>=0 ; i-- )); do
-  INSTALL_SCRIPTS_REVERSED+=("${INSTALL_SCRIPTS[i]}")
+last_client=${#INSTALL_SCRIPTS_CLIENT[@]}
+declare -a INSTALL_SCRIPTS_CLIENT_REVERSED
+for (( i=last_client-1 ; i>=0 ; i-- )); do
+  INSTALL_SCRIPTS_CLIENT_REVERSED+=("${INSTALL_SCRIPTS_CLIENT[i]}")
+done
+# Reverse the INSTALL_SCRIPTS array
+last_server=${#INSTALL_SCRIPTS_SERVER[@]}
+declare -a INSTALL_SCRIPTS_SERVER_REVERSED
+for (( i=last_server-1 ; i>=0 ; i-- )); do
+  INSTALL_SCRIPTS_SERVER_REVERSED+=("${INSTALL_SCRIPTS_SERVER[i]}")
 done
 
 IMAGES_DIR="${SCRIPT_DIR}/../../../images"
@@ -152,7 +173,7 @@ verify_cloudsdk() {
 
 check_existing_builds() {
   if [[ "${DAOS_INSTALL_TYPE}" =~ ^(all|server)$ ]]; then
-    SERVER_IMAGE=$(gcloud compute images list --project="${GCP_PROJECT}" --format='value(name)' --filter="name:${SERVER_OS_FAMILY}*" --limit=1)
+    SERVER_IMAGE=$(gcloud compute images list --project="${GCP_PROJECT}" --format='value(name)' --filter="name:${DAOS_SERVER_OS_FAMILY}*" --limit=1)
     if [[ "${FORCE_REBUILD}" -eq 1 ]] || [[ -z ${SERVER_IMAGE} ]]; then
       export BUILD_SERVER_IMAGE=1
     else
@@ -162,7 +183,7 @@ check_existing_builds() {
   fi
 
   if [[ "${DAOS_INSTALL_TYPE}" =~ ^(all|client)$ ]]; then
-    CLIENT_IMAGE=$(gcloud compute images list --project="${GCP_PROJECT}" --format='value(name)' --filter="name:${CLIENT_OS_FAMILY}*" --limit=1)
+    CLIENT_IMAGE=$(gcloud compute images list --project="${GCP_PROJECT}" --format='value(name)' --filter="name:${DAOS_CLIENT_OS_FAMILY}*" --limit=1)
     if [[ "${FORCE_REBUILD}" -eq 1 ]] || [[ -z ${CLIENT_IMAGE} ]]; then
       export BUILD_CLIENT_IMAGE=1
     else
@@ -197,27 +218,40 @@ cleanup() {
 add_script() {
   script_name="$1"
   comma="$2"
-  if ! grep -q "${script_name}" "${TMP_CLIENT_PACKER_FILE}"; then
-    sed -i "\|\"./scripts/install_daos.sh\",$|a \\      \"./scripts/${script_name}\"${comma}" "${TMP_CLIENT_PACKER_FILE}"
+  packer_file="$3"
+  if ! grep -q "${script_name}" "${packer_file}"; then
+    sed -i "\|\"./scripts/install_daos.sh\",$|a \\      \"./scripts/${script_name}\"${comma}" "${packer_file}"
   fi
 }
 
+
 add_install_scripts() {
-
-  last=${#INSTALL_SCRIPTS_REVERSED[@]}
-
-  if [[ ${last} -gt 0 ]]; then
+  last_client=${#INSTALL_SCRIPTS_CLIENT_REVERSED[@]}
+  last_server=${#INSTALL_SCRIPTS_SERVER_REVERSED[@]}
+  if [[ ${last_client} -gt 0 ]]; then
     # Update the daos-client-image.json packer file to add additional scripts to run
     # when building the image.
     # Look for "./scripts/install_daos.sh" and add more scripts after that line
     sed -i 's/install_daos.sh"$/install_daos.sh",/g' "${TMP_CLIENT_PACKER_FILE}"
-
-    for (( i=0 ; i<last ; i++ ));do
+    for (( i=0 ; i<last_client ; i++ ));do
       comma=","
       if (( i == 0 )); then comma=""; fi
-      script="${INSTALL_SCRIPTS_REVERSED[i]}"
-      add_script "${script}" "${comma}"
-
+      script="${INSTALL_SCRIPTS_CLIENT_REVERSED[i]}"
+      add_script "${script}" "${comma}" "${TMP_CLIENT_PACKER_FILE}"
+      # Copy the script to the images/scripts directory
+      cp "${IO500_INSTALL_SCRIPTS_DIR}/${script}" "${TMP_SCRIPTS_DIR}/${script}"
+    done
+  fi
+  if [[ ${last_server} -gt 0 ]]; then
+    # Update the daos-server-image.json packer file to add additional scripts to run
+    # when building the image.
+    # Look for "./scripts/install_daos.sh" and add more scripts after that line
+    sed -i 's/install_daos.sh"$/install_daos.sh",/g' "${TMP_SERVER_PACKER_FILE}"
+    for (( i=0 ; i<last_server ; i++ ));do
+      comma=","
+      if (( i == 0 )); then comma=""; fi
+      script="${INSTALL_SCRIPTS_SERVER_REVERSED[i]}"
+      add_script "${script}" "${comma}" "${TMP_SERVER_PACKER_FILE}"
       # Copy the script to the images/scripts directory
       cp "${IO500_INSTALL_SCRIPTS_DIR}/${script}" "${TMP_SCRIPTS_DIR}/${script}"
     done
@@ -226,8 +260,8 @@ add_install_scripts() {
 
 modify_image_names() {
   # Modify daos-client image name and image family to include 'io500' in the name
-  sed -i "s/daos-client-hpc-centos-7/${CLIENT_OS_FAMILY}/g" "${TMP_CLIENT_PACKER_FILE}"
-  sed -i "s/daos-server-centos-7/${SERVER_OS_FAMILY}/g" "${TMP_SERVER_PACKER_FILE}"
+  sed -i "s/daos-client-hpc-centos-7/${DAOS_CLIENT_OS_FAMILY}/g" "${TMP_CLIENT_PACKER_FILE}"
+  sed -i "s/daos-server-centos-7/${DAOS_SERVER_OS_FAMILY}/g" "${TMP_SERVER_PACKER_FILE}"
 }
 
 build_images() {
@@ -237,12 +271,12 @@ build_images() {
   cd "${TMP_IMAGES_DIR}"
 
   if [[ "${BUILD_SERVER_IMAGE}" -eq 1 ]]; then
-      log.info "Building DAOS server image: ${SERVER_OS_FAMILY}"
+      log.info "Building DAOS server image: ${DAOS_SERVER_OS_FAMILY}"
       ./build_images.sh -t "server"
   fi
 
   if [[ "${BUILD_CLIENT_IMAGE}" -eq 1 ]]; then
-      log.info "Building DAOS client image: ${CLIENT_OS_FAMILY}"
+      log.info "Building DAOS client image: ${DAOS_CLIENT_OS_FAMILY}"
       ./build_images.sh -t "client"
   fi
 }

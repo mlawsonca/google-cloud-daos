@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
 METADATA_URL="http://metadata.google.internal/computeMetadata/v1/instance/attributes"
-DAOS_SERVER_SYSTEMD_FILE="/usr/lib/systemd/system/daos_server.service"
+%{ if "${daos_version}" == "2.3.0" }
+  DAOS_SERVER_SYSTEMD_FILE="/etc/systemd/system/daos_server.service"
+%{ else }
+  DAOS_SERVER_SYSTEMD_FILE="/usr/lib/systemd/system/daos_server.service"
+%{ endif }
+
 FIRST_DAOS_SERVER_HOSTNAME="${first_server}"
 
 fetch_attr()
@@ -27,9 +32,22 @@ fetch_attr "daos_server_yaml_content" > daos_server.yml
 fetch_attr "daos_control_yaml_content" > daos_control.yml
 fetch_attr "daos_agent_yaml_content" > daos_agent.yml
 
+log.error "daos_server_yaml_content: $(fetch_attr "daos_server_yaml_content")"
+log.error $(cat daos_server.yml)
+
 # Modify systemd script for GCP
 # GCP does not support VFIO so daos_server must run as root
 sed -i "s/User=daos_server/User=root/; s/Group=daos_server/Group=root/" $${DAOS_SERVER_SYSTEMD_FILE}
+
+%{ if "${daos_version}" == "2.3.0" }
+  chmod 4755 /usr/bin/daos_server_helper || true
+  chmod 4755 /usr/bin/daos_admin || true
+  mkdir -p /var/run/daos_server
+  ln -s /usr/prereq/release/spdk/include /usr/share/spdk/include || true
+  ln -s /usr/prereq/release/spdk/scripts /usr/share/spdk/scripts || true
+  ln -s /usr/prereq/release/spdk/share/spdk /usr/share || true
+  /usr/share/daos/control/setup_spdk.sh
+%{ endif }
 
 # Enable and start services
 systemctl enable daos_server

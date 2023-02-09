@@ -45,6 +45,7 @@ module "daos_server" {
   pools               = var.server_pools
   gvnic               = var.server_gvnic
   allow_insecure      = var.allow_insecure
+  daos_version        = var.daos_version
 }
 
 module "daos_client" {

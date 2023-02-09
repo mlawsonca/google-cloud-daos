@@ -1,0 +1,15 @@
+#set -eo pipefail
+#trap 'echo "Hit an unexpected and unchecked error. Exiting."' ERR
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+IO500_TMP="${SCRIPT_DIR}/tmp"
+SSH_CONFIG_FILE="${IO500_TMP}/ssh_config"
+source "${SCRIPT_DIR}/config/config.sh"
+
+mkdir -p ${SCRIPT_DIR}/io500-sc22/results
+
+FIRST_CLIENT_IP=$(cat ${SCRIPT_DIR}/login | tail -n 1 | cut -d ' ' -f1-5 --complement)
+ssh -q -F "${SSH_CONFIG_FILE}" "${FIRST_CLIENT_IP}" \
+    "mkdir -p io500-sc22/results && if scp "${DAOS_SERVER_BASE_NAME}"-0001:~/io500-sc22/results/*.tar.gz io500-sc22/results >&/dev/null ; then echo "successfully transferred server result files" ; else echo "no server result files to transfer" ; fi"
+
+if scp -F "${SSH_CONFIG_FILE}" -r "${FIRST_CLIENT_IP}":~/io500-sc22/results/*.tar.gz ${SCRIPT_DIR}/io500-sc22/results >&/dev/null ; then echo "successfully transferred result files" ; else echo "no result files to transfer" ; fi
