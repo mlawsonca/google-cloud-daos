@@ -46,17 +46,24 @@ if [[ -f "${CONFIG_FILE}" ]]; then
 fi
 
 ####### user vars ########
-OCLASS_1="S1"
-OCLASS_X="SX"
+FILE_OCLASS="S1"
+DIR_OCLASS="SX"
 DAOS_CONT_REPLICATION_FACTOR="rf:0"
 TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf0-hyper-fio"
-#OCLASS_1="EC_2P1G1"
-#OCLASS_X="EC_2P1GX"
+
+#FILE_OCLASS="EC_2P1G1"
+#DIR_OCLASS="RP_2G1"
 #DAOS_CONT_REPLICATION_FACTOR="rf:1,ec_cell_sz:131072"
 #TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf1-hyper-fio"
-##########################
+
+DAOS_CHUNK_SIZE="1048576"
 
 FIO_DFUSE_DIR="${FIO_DFUSE_DIR:-"${HOME}/daos_fuse/${IO500_VERSION_TAG}"}"
+FIO_RESULTS_DIR="${FIO_RESULTS_DIR:-"${HOME}/${IO500_VERSION_TAG}/results"}"
+DAOS_POOL_LABEL="${DAOS_POOL_LABEL:-fio_pool}"
+DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-fio_cont}"
+##########################
+
 RESULT_FILE_PREFIX=""
 if [[ "${DAOS_CONT_REPLICATION_FACTOR}" == "rf:0" ]]; then
   RESULT_FILE_PREFIX="hyper_rf0"
@@ -64,12 +71,8 @@ else
   RESULT_FILE_PREFIX="hyper_rf1"
 fi
 
-
-FIO_RESULTS_DIR="${FIO_RESULTS_DIR:-"${HOME}/${IO500_VERSION_TAG}/results"}"
 FIO_FILE="${FIO_DFUSE_DIR}/fio-file.dat"
 
-DAOS_POOL_LABEL="${DAOS_POOL_LABEL:-fio_pool}"
-DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-fio_cont}"
 export POOL="${DAOS_POOL_LABEL}"
 export CONT="${DAOS_CONT_LABEL}"
 
@@ -146,9 +149,9 @@ create_container() {
   log.info "Create container: label=${DAOS_CONT_LABEL}"
   log.debug "COMMAND: daos container create --type=POSIX --properties=\"${DAOS_CONT_REPLICATION_FACTOR}\" --label=\"${DAOS_CONT_LABEL}\" \"${DAOS_POOL_LABEL}\""
   if [[ ${DAOS_VERSION} == "2.3.0" ]]; then
-    daos container create --oclass="${OCLASS_1}" --dir_oclass="${OCLASS_X}" --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" "${DAOS_CONT_LABEL}"
+    daos container create --chunk-size="${DAOS_CHUNK_SIZE}" --file_oclass="${FILE_OCLASS}" --dir_oclass="${DIR_OCLASS}" --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" "${DAOS_CONT_LABEL}"
   else
-    daos container create --oclass="${OCLASS_X}" --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" --label="${DAOS_CONT_LABEL}"
+    daos container create --chunk-size="${DAOS_CHUNK_SIZE}" --oclass="${FILE_OCLASS}" --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" --label="${DAOS_CONT_LABEL}"
   fi
 
   log.info "Show container properties"

@@ -27,9 +27,9 @@ locals {
   huge_pages        = (var.daos_disk_count * 1048576) / 2048
   targets           = var.daos_disk_count
   crt_timeout       = var.daos_crt_timeout
-  daos_ca_secret_id = basename(google_secret_manager_secret.daos_ca.id)
   allow_insecure    = var.allow_insecure
   pools             = var.pools
+  daos_ca_secret_id = !local.allow_insecure ? basename(google_secret_manager_secret.daos_ca[0].id) : ""
 
   # Google Virtual NIC (gVNIC) network interface
   nic_type                    = var.gvnic ? "GVNIC" : "VIRTIO_NET"
@@ -130,7 +130,7 @@ resource "google_compute_disk" "boot_disk" {
   image  = data.google_compute_image.os_image.self_link
   type   = var.os_disk_type
   size   = var.os_disk_size_gb
-  zone                   = var.zone
+  zone   = var.zone
 }
 
 
@@ -206,24 +206,14 @@ resource "google_compute_instance" "named_instances" {
   #}
 }
 
-resource "google_secret_manager_secret" "daos_ca" {
-   secret_id = format("%s_ca", var.instance_base_name)
-   project   = var.project_id
-
-   replication {
-     user_managed {
-       replicas {
-         location = var.region
-       }
-     }
-   }
-}
 
  data "google_compute_default_service_account" "default" {
    project = var.project_id
  }
 
- data "google_iam_policy" "daos_ca_secret_version_manager" {
+
+data "google_iam_policy" "daos_ca_secret_version_manager" {
+   count       = !local.allow_insecure ? 1 : 0
    binding {
      role = "roles/secretmanager.secretVersionManager"
      members = [
@@ -245,7 +235,24 @@ resource "google_secret_manager_secret" "daos_ca" {
  }
 
  resource "google_secret_manager_secret_iam_policy" "daos_ca_secret_policy" {
+   count       = !local.allow_insecure ? 1 : 0
    project     = var.project_id
-   secret_id   = google_secret_manager_secret.daos_ca.secret_id
-   policy_data = data.google_iam_policy.daos_ca_secret_version_manager.policy_data
+   secret_id   = google_secret_manager_secret.daos_ca[0].secret_id
+   policy_data = data.google_iam_policy.daos_ca_secret_version_manager[0].policy_data
  }
+
+ resource "google_secret_manager_secret" "daos_ca" {
+   count       = !local.allow_insecure ? 1 : 0
+   secret_id = format("%s_ca", var.instance_base_name)
+   project   = var.project_id
+
+   replication {
+     user_managed {
+       replicas {
+         location = var.region
+       }
+     }
+   }
+ }
+
+

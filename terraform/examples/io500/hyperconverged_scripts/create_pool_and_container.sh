@@ -14,7 +14,7 @@
 # limitations under the License.
 
 #
-# Cleans DAOS storage and runs an IOR benchmark
+# Cleans DAOS storage and runs an FIO benchmark
 #
 # Instructions that were referenced to create this script are at
 # https://daosio.atlassian.net/wiki/spaces/DC/pages/11167301633/IO-500+SC22
@@ -29,9 +29,8 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 source "${SCRIPT_DIR}/_log.sh"
 export LOG_LEVEL=INFO
 
-IO500_VERSION_TAG="io500-sc22"
-IO500_DIR="${IO500_DIR:-"/opt/${IO500_VERSION_TAG}"}"
 CONFIG_FILE="${SCRIPT_DIR}/config.sh"
+
 
 # Comma separated list of servers needed for the dmg command
 # TODO: Figure out a better way for this script to get the list of servers
@@ -48,33 +47,31 @@ fi
 FILE_OCLASS="S1"
 DIR_OCLASS="SX"
 DAOS_CONT_REPLICATION_FACTOR="rf:0"
-TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf0-hyper-ior"
 
 #FILE_OCLASS="EC_2P1G1"
 #DIR_OCLASS="RP_2G1"
 #DAOS_CONT_REPLICATION_FACTOR="rf:1,ec_cell_sz:131072"
-#TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf1-hyper-ior"
 
 DAOS_CHUNK_SIZE="1048576"
 
-IOR_DFUSE_DIR="${IOR_DFUSE_DIR:-"${HOME}/daos_fuse/${IO500_VERSION_TAG}"}"
-IOR_RESULTS_DIR="${IOR_RESULTS_DIR:-"${HOME}/${IO500_VERSION_TAG}/results"}"
-DAOS_POOL_LABEL="${DAOS_POOL_LABEL:-ior_pool}"
-DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-ior_cont}"
+DAOS_POOL_LABEL="${DAOS_POOL_LABEL:-pool}"
+DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-cont}"
 ##########################
 
-IOR_DATAFILES_DFUSE_DIR="${IOR_DATAFILES_DFUSE_DIR:-"/datafiles"}"
+DFUSE_DIR="${DFUSE_DIR:-"${HOME}/daos_fuse"}"
+export POOL="${DAOS_POOL_LABEL}"
+export CONT="${DAOS_CONT_LABEL}"
 
 unmount_defuse() {
-  log.info "Attempting to unmount DFuse mountpoint ${IOR_DFUSE_DIR}"
-  if findmnt --target "${IOR_DFUSE_DIR}" > /dev/null; then
-    log.info "Unmount DFuse mountpoint ${IOR_DFUSE_DIR}"
+  log.info "Attempting to unmount DFuse mountpoint ${DFUSE_DIR}"
+  if findmnt --target "${DFUSE_DIR}" > /dev/null; then
+    log.info "Unmount DFuse mountpoint ${DFUSE_DIR}"
 
     clush --hostfile=hosts_servers --dsh \
-      "sudo fusermount3 -u ${IOR_DFUSE_DIR}"
+      "sudo fusermount3 -u ${DFUSE_DIR}"
 
     clush --hostfile=hosts_servers --dsh \
-      "rm -r ${IOR_DFUSE_DIR}"
+      "rm -r ${DFUSE_DIR}"
 
     clush --hostfile=hosts_servers --dsh \
       "mount | sort | grep dfuse || true"
@@ -149,16 +146,16 @@ create_container() {
 }
 
 mount_dfuse() {
-  if [[ -d "${IOR_DFUSE_DIR}" ]]; then
-    log.error "DFuse dir ${IOR_DFUSE_DIR} already exists."
+  if [[ -d "${DFUSE_DIR}" ]]; then
+    log.error "DFuse dir ${DFUSE_DIR} already exists."
   else
-    log.info "Use dfuse to mount ${DAOS_CONT_LABEL} on ${IOR_DFUSE_DIR}"
+    log.info "Use dfuse to mount ${DAOS_CONT_LABEL} on ${DFUSE_DIR}"
 
     clush --hostfile=hosts_servers --dsh \
-      "mkdir -p ${IOR_DFUSE_DIR}"
+      "mkdir -p ${DFUSE_DIR}"
 
     clush --hostfile=hosts_servers --dsh \
-      "dfuse -S --pool=${DAOS_POOL_LABEL} --container=${DAOS_CONT_LABEL} --mountpoint=${IOR_DFUSE_DIR}"
+      "dfuse -S --pool=${DAOS_POOL_LABEL} --container=${DAOS_CONT_LABEL} --mountpoint=${DFUSE_DIR}"
 
     sleep 10
 
@@ -166,99 +163,21 @@ mount_dfuse() {
   fi
 }
 
-ior_prepare() {
-  log.info "Load Intel MPI"
-  export I_MPI_OFI_LIBRARY_INTERNAL=0
-  export I_MPI_OFI_PROVIDER="tcp;ofi_rxm"
-  source /opt/intel/oneapi/setvars.sh
-
-  export PATH=$PATH:${IO500_DIR}/bin
-  export LD_LIBRARY_PATH=/usr/local/mpifileutils/install/lib64/:$LD_LIBRARY_PATH
-
-  export DAOS_POOL="${DAOS_POOL_LABEL}"
-  export DAOS_CONT="${DAOS_CONT_LABEL}"
-  export MFU_POSIX_TS=1
-  export PPN=4
-  export NP=$((PPN * ${DAOS_SERVER_INSTANCE_COUNT}))
-  export I_MPI_PIN_PROCESSOR_LIST=0,1,22,23
-  export MPI_RUN_OPTS=""
-
-  # Prepare final results directory for the current run
-  TIMESTAMP=$(date "+%Y-%m-%d_%H%M%S")
-  IOR_RESULTS_DIR_TIMESTAMPED="${IOR_RESULTS_DIR}/${TIMESTAMP}"
-  log.info "Creating directory for results ${IOR_RESULTS_DIR_TIMESTAMPED}"
-  mkdir -p "${IOR_RESULTS_DIR_TIMESTAMPED}"
-}
-
-run_ior() {
-  mpirun -np ${NP} -ppn ${PPN} --hostfile "${SCRIPT_DIR}/hosts_servers" \
-    ${MPI_RUN_OPTS} "${IO500_DIR}/bin/ior" \
-    -a DFS --dfs.pool=ior_pool --dfs.cont=ior_cont --dfs.prefix="${IOR_DFUSE_DIR}" \
-    -w -r -z -e -C -F -t 4k -b 100m -O useO_DIRECT=1 \
-    -o "${IOR_DFUSE_DIR}/randomtest" &> ${IOR_RESULTS_DIR_TIMESTAMPED}/ior_100m.txt
-}
-
-show_pool_state() {
-  log.info "Query pool state"
-  dmg pool query "${DAOS_POOL_LABEL}"
-}
-
-process_results() {
-
-  cp config.sh "${IOR_RESULTS_DIR_TIMESTAMPED}/"
-  cp hosts* "${IOR_RESULTS_DIR_TIMESTAMPED}/"
-
-  echo "${TIMESTAMP}" > "${IOR_RESULTS_DIR_TIMESTAMPED}/ior_run_timestamp.txt"
-
-  FIRST_SERVER=$(echo "${SERVER_LIST}" | cut -d, -f1)
-  ssh "${FIRST_SERVER}" 'daos_server version' > \
-    "${IOR_RESULTS_DIR_TIMESTAMPED}/daos_server_version.txt"
-
-  RESULT_SERVER_FILES_DIR="${IOR_RESULTS_DIR_TIMESTAMPED}/server_files"
-  # shellcheck disable=SC2013
-  for server in $(cat hosts_servers);do
-    SERVER_FILES_DIR="${RESULT_SERVER_FILES_DIR}/${server}"
-    mkdir -p "${SERVER_FILES_DIR}/etc/daos"
-    scp "${server}:/etc/daos/*.yml" "${SERVER_FILES_DIR}/etc/daos/"
-    mkdir -p "${SERVER_FILES_DIR}/var/daos"
-    scp "${server}:/var/daos/*.log*" "${SERVER_FILES_DIR}/var/daos/"
-    ssh "${server}" 'daos_server version' > "${SERVER_FILES_DIR}/daos_server_version.txt"
-  done
-
-  # Save a copy of the environment variables for the IOR run
-  printenv | sort > "${IOR_RESULTS_DIR_TIMESTAMPED}/env.sh"
-
-  # Save output from "dmg pool query"
-  # shellcheck disable=SC2024
-  dmg pool query "${DAOS_POOL_LABEL}" > \
-    "${IOR_RESULTS_DIR_TIMESTAMPED}/dmg_pool_query_${DAOS_POOL_LABEL}.txt"
-
-  log.info "Results files located in ${IOR_RESULTS_DIR_TIMESTAMPED}"
-
-  RESULTS_TAR_FILE="${TEST_CONFIG_ID}_${TIMESTAMP}.tar.gz"
-
-  log.info "Creating '${IOR_RESULTS_DIR}/${RESULTS_TAR_FILE}' file with contents of ${IOR_RESULTS_DIR_TIMESTAMPED} directory"
-  pushd "${IOR_RESULTS_DIR}"
-  tar -czf "${IOR_RESULTS_DIR}/${RESULTS_TAR_FILE}" ./${TIMESTAMP}
-  log.info "Results tar file: ${IOR_RESULTS_DIR}/${RESULTS_TAR_FILE}"
-  popd
-}
 
 main() {
-  log.section "Prepare for IOR run"
+  log.section "Set up DAOS cluster and container"
   cleanup
   storage_scan
   format_storage
   show_storage_usage
   create_pool
   create_container
-  mount_dfuse
-  ior_prepare
-
-  log.section "Run IOR"
-  run_ior
-  process_results
-  unmount_defuse
+  #if we are only spinning up the servers and not running in
+  #hyperconverged mode, clients will mount the container not
+  #servers
+  if ${HYPERCONVERGED}; then
+    mount_dfuse
+  fi
 }
 
 main

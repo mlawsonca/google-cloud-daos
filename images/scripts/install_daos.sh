@@ -218,7 +218,7 @@ install_epel() {
     if rpm -qa | grep -q "epel-release"; then
       log.info "epel-release already installed"
     else
-      if [[ "${OS_VERSION_ID}" == "rocky_8"* ]]; then
+      if [[ "${DAOS_VERSION}" == "2.2.0" ]]; then
         cat > ${REPO_PATH}/epel.repo << EOF
 [epel]
 name=Extra Packages for Enterprise Linux 8 - $basearch
@@ -289,7 +289,7 @@ main() {
     verify_version
     add_daos_repo
     install_daos
-    log.info "DONE! DAOS v${DAOS_VERSION} installed"  
+    log.info "DONE! DAOS v${DAOS_VERSION} installed"
   fi
 }
 

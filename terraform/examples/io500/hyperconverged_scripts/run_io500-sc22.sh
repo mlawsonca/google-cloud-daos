@@ -40,17 +40,27 @@ if [[ -f "${CONFIG_FILE}" ]]; then
 fi
 
 ####### user vars ########
-OCLASS_1="S1"
-OCLASS_X="SX"
+FILE_OCLASS="S1"
+DIR_OCLASS="SX"
 DAOS_CONT_REPLICATION_FACTOR="rf:0"
 TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf0-hyper-io500"
-#OCLASS_1="EC_2P1G1"
-#OCLASS_X="EC_2P1GX"
+
+#FILE_OCLASS="EC_2P1G1"
+#DIR_OCLASS="RP_2G1"
 #DAOS_CONT_REPLICATION_FACTOR="rf:1,ec_cell_sz:131072"
 #TEST_CONFIG_ID="${BASE_CONFIG_ID}-rf1-hyper-io500"
 
+DAOS_CHUNK_SIZE="1048576"
+
 IO500_STONEWALL_TIME=60
 IO500_INI="io500-sc22.config-template.daos.ini"
+
+IO500_DFUSE_DIR="${IO500_DFUSE_DIR:-"${HOME}/daos_fuse/${IO500_VERSION_TAG}"}"
+IO500_RESULTS_DIR="${IO500_RESULTS_DIR:-"${HOME}/${IO500_VERSION_TAG}/results"}"
+
+DAOS_POOL_LABEL="${DAOS_POOL_LABEL:-io500_pool}"
+DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-io500_cont}"
+
 ##########################
 
 # Comma separated list of servers needed for the dmg command
@@ -58,16 +68,8 @@ IO500_INI="io500-sc22.config-template.daos.ini"
 #       Requiring the hosts_servers file is not ideal
 SERVER_LIST=$(awk -vORS=, '{ print $1 }' "${SCRIPT_DIR}/hosts_servers" | sed 's/,$/\n/')
 
-IO500_STONEWALL_TIME="${IO500_STONEWALL_TIME:-5}"
-
-IO500_DFUSE_DIR="${IO500_DFUSE_DIR:-"${HOME}/daos_fuse/${IO500_VERSION_TAG}"}"
 IO500_RESULTS_DFUSE_DIR="${IO500_RESULTS_DFUSE_DIR:-"${IO500_DFUSE_DIR}/results"}"
 IO500_DATAFILES_DFUSE_DIR="${IO500_DATAFILES_DFUSE_DIR:-"/datafiles"}"
-
-IO500_RESULTS_DIR="${IO500_RESULTS_DIR:-"${HOME}/${IO500_VERSION_TAG}/results"}"
-
-DAOS_POOL_LABEL="${DAOS_POOL_LABEL:-io500_pool}"
-DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-io500_cont}"
 
 unmount_defuse() {
   log.info "Attempting to unmount DFuse mountpoint ${IO500_DFUSE_DIR}"
@@ -155,9 +157,9 @@ create_container() {
   log.info "Create container: label=${DAOS_CONT_LABEL}"
   log.debug "COMMAND: daos container create --type=POSIX --properties=\"${DAOS_CONT_REPLICATION_FACTOR}\" --label=\"${DAOS_CONT_LABEL}\" \"${DAOS_POOL_LABEL}\""
   if [[ ${DAOS_VERSION} == "2.3.0" ]]; then
-    daos container create --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" "${DAOS_CONT_LABEL}"
+    daos container create --chunk-size="${DAOS_CHUNK_SIZE}" --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" "${DAOS_CONT_LABEL}"
   else
-    daos container create --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" --label="${DAOS_CONT_LABEL}"
+    daos container create --chunk-size="${DAOS_CHUNK_SIZE}" --type=POSIX --properties="${DAOS_CONT_REPLICATION_FACTOR}" "${DAOS_POOL_LABEL}" --label="${DAOS_CONT_LABEL}"
   fi
 
   log.info "Show container properties"
@@ -211,8 +213,8 @@ io500_prepare() {
   sed -i "s/^transferSize.*/transferSize = 4m/g" temp.ini
   sed -i "s/^filePerProc.*/filePerProc = TRUE /g" temp.ini
   sed -i "s/^nproc.*/nproc = ${IO500_NP}/g" temp.ini
-  sed -i "s/oclass=S1/oclass=${OCLASS_1}/g" temp.ini
-  sed -i "s/oclass=SX/oclass=${OCLASS_X}/g" temp.ini
+  sed -i "s/oclass=S1/oclass=${FILE_OCLASS}/g" temp.ini
+  sed -i "s/oclass=SX/oclass=${DIR_OCLASS}/g" temp.ini
 
   # Prepare final results directory for the current run
   TIMESTAMP=$(date "+%Y-%m-%d_%H%M%S")

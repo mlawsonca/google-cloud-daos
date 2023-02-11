@@ -26,4 +26,6 @@ steps:
       -var zone=${_ZONE} \
       -var use_iap=${_USE_IAP} \
       -var machine_type=${_MACHINE_TYPE} \
+      -var source_image_family=${_DAOS_CLIENT_SOURCE_IMAGE_FAMILY} \
+      -var source_image_project_id=${_DAOS_CLIENT_SOURCE_IMAGE_PROJECT_ID} \
       daos-client-image.pkr.hcl

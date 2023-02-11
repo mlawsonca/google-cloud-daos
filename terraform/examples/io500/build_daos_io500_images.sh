@@ -52,6 +52,11 @@ else
     build_daos_el8.sh
   )
 fi
+
+if ${SERVERS_ONLY}; then
+  INSTALL_SCRIPTS_SERVER=${INSTALL_SCRIPTS_CLIENT}
+fi
+
 # Reverse the INSTALL_SCRIPTS array
 last_client=${#INSTALL_SCRIPTS_CLIENT[@]}
 declare -a INSTALL_SCRIPTS_CLIENT_REVERSED

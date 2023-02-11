@@ -224,7 +224,7 @@ load_config() {
   # shellcheck source=/dev/null
   source "${CONFIG_FILE}"
 
-  if ${HYPERCONVERGED}; then
+  if ${SERVERS_ONLY}; then
     node_type="server"
   else
     node_type="client"
@@ -270,7 +270,7 @@ create_hosts_files() {
 
 
 
-  if ${HYPERCONVERGED}; then
+  if ${SERVERS_ONLY}; then
     DAOS_FIRST_CLIENT=$(echo "${SERVERS}" | awk '{print $1}')
   else
     DAOS_FIRST_CLIENT=$(echo "${CLIENTS}" | awk '{print $1}')
@@ -292,7 +292,11 @@ create_hosts_files() {
 build_disk_images() {
   # Build the DAOS disk images
   log.section "IO500 Disk Images"
-  "${SCRIPT_DIR}/build_daos_io500_images.sh" --type all -i false
+  if ${SERVERS_ONLY}; then
+    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type server -i false
+  else
+    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type all -i false
+  fi
 }
 
 run_terraform() {
@@ -479,7 +483,7 @@ copy_files_to_first_client() {
     "${CONFIG_FILE}" \
     "${SSH_USER}"@"${FIRST_CLIENT_IP}":~/config.sh
 
-  if ! ${HYPERCONVERGED}; then
+  if ! ${SERVERS_ONLY}; then
     scp -F "${SSH_CONFIG_FILE}" \
       "${HOSTS_CLIENTS_FILE}" \
       "${HOSTS_SERVERS_FILE}" \
@@ -490,140 +494,38 @@ copy_files_to_first_client() {
       "${SCRIPT_DIR}/io500-sc22.config-template.daos.ini" \
       "${SCRIPT_DIR}/run_ior.sh" \
       "${SCRIPT_DIR}/run_fio.sh" \
-      "${SCRIPT_DIR}/create_container.sh" \
-      "${SCRIPT_DIR}/destroy_container.sh" \
+      "${SCRIPT_DIR}/create_pool_and_container.sh" \
+      "${SCRIPT_DIR}/destroy_pool_and_container.sh" \
+      "${SCRIPT_DIR}/mount_container.sh" \
+      "${SCRIPT_DIR}/unmount_container.sh" \
       "${FIRST_CLIENT_IP}:~/"
   else
-
-    mkdir -p "${IO500_TMP}/clients_only_scripts/.ssh"
-    cp -t "${IO500_TMP}/clients_only_scripts" \
-      "${HOSTS_SERVERS_FILE}" \
-      "${SCRIPT_DIR}/_log.sh" \
-      "${SCRIPT_DIR}/clean_storage.sh" \
-      "${SCRIPT_DIR}/run_io500-sc22.sh" \
-      "${SCRIPT_DIR}/io500-sc22.config-template.daos.ini" \
-      "${SCRIPT_DIR}/run_ior.sh" \
-      "${SCRIPT_DIR}/run_fio.sh" \
-      "${SCRIPT_DIR}/create_container.sh" \
-      "${SCRIPT_DIR}/destroy_container.sh" \
-      "${SCRIPT_DIR}/install_scripts/build_daos_el8.sh" \
-      "${CONFIG_FILE}" \
-      "../../../images/scripts/tune.sh"
-
-
-    cp -t "${IO500_TMP}/clients_only_scripts/.ssh" \
-      "${IO500_TMP}/id_rsa" \
-      "${IO500_TMP}/id_rsa.pub"
-      # "${IO500_TMP}/keys.txt"
-
-    sudo cp "${IO500_TMP}/instance_ssh_config" "${IO500_TMP}/clients_only_scripts/.ssh/config"
-
     #chmod -R 600 "${IO500_TMP}/clients_only_scripts/.ssh/"*
-
-    cat > "${IO500_TMP}/clients_only_scripts/startup_script.sh" <<'OUTEREOF'
-#!/usr/bin/env bash
-
-SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
-MY_DAOS_INSTALL_PATH="${MY_DAOS_INSTALL_PATH:-/usr}"
-CONFIG_FILE="${SCRIPT_DIR}/config.sh"
-
-# Source config file to load variables
-if [[ -f "${CONFIG_FILE}" ]]; then
-  # shellcheck source=/dev/null
-  source "${CONFIG_FILE}"
-fi
-
-pushd ${MY_DAOS_INSTALL_PATH}
-sudo ${SCRIPT_DIR}/build_daos_el8.sh
-popd
-sudo cp -r ${SCRIPT_DIR}/.ssh/* ~/.ssh
-
-# Create agent config files from metadata
-sudo mkdir -p /etc/daos
-
-sudo bash -c 'cat > /etc/daos/daos_agent.yml' << EOF
-#
-# DAOS agent configuration file
-#
-
-# Management server access points
-# Must have the same value for all agents and servers in a system.
-access_points: [""]
-
-transport_config:
-  allow_insecure: ${DAOS_ALLOW_INSECURE}
-
-
-fabric_ifaces:
-- numa_node: 0
-  devices:
-  - iface: eth0
-    domain: eth0
-EOF
-
-sudo bash -c 'cat > /etc/daos/daos_control.yml' << EOF
-#
-# DAOS manager (dmg) configuration file
-#
-
-hostlist: [""]
-
-transport_config:
-  allow_insecure: ${DAOS_ALLOW_INSECURE}
-EOF
-
-SERVER_LIST=$(awk -vORS=, '{ print $1 }' "${SCRIPT_DIR}/hosts_servers" | sed 's/,$/\n/')
-NUM_SERVERS=$(wc -l "${SCRIPT_DIR}/hosts_servers" | cut -c 1)
-if [[ ${NUM_SERVERS} -ge 3 ]]; then
-  ACCESS_LIST=$(head -n 3 "${SCRIPT_DIR}/hosts_servers" | awk -vORS=, '{ print $1 }'  | sed 's/,$/\n/')
-else
-  ACCESS_LIST=$(head -n 1 "${SCRIPT_DIR}/hosts_servers")
-fi
-
-sudo sed -i "s/hostlist:.*/hostlist: [${SERVER_LIST}]/g" '/etc/daos/daos_control.yml'
-sudo sed -i "s/access_points:.*/access_points: [${ACCESS_LIST}]/g" '/etc/daos/daos_agent.yml'
-sudo chown -R daos_agent:daos_agent /etc/daos/
-
-if [[ ! -f /usr/lib64/daos/certgen/gen_certificates.sh ]]; then
-  echo "ERROR! File not found: /usr/lib64/daos/certgen/gen_certificates.sh"
-  exit 1
-fi
-echo "Generating DAOS certificates"
-sudo mkdir -p /etc/daos
-FIRST_SERVER=$(head -n 1 "${SCRIPT_DIR}/hosts_servers")
-ssh ${FIRST_SERVER} "sudo tar --absolute-names -czvf certs.tar.gz /etc/daos"
-scp ${FIRST_SERVER}:~/certs.tar.gz ~/certs.tar.gz
-sudo tar --absolute-names -xzvf ~/certs.tar.gz
-rm -f ~/certs.tar.gz
-ssh ${FIRST_SERVER} "rm -f ~/certs.tar.gz"
-
-sudo systemctl enable daos_agent
-sudo systemctl start daos_agent
-
-echo "END: DAOS Client Startup Script"
-
-OUTEREOF
-
-  chmod +x "${IO500_TMP}/clients_only_scripts/"*.sh
-
-
-    pushd "${IO500_TMP}"
-    sudo tar -czvf clients_only_scripts.tar.gz "./clients_only_scripts"
-    popd
-
-
-    scp -F "${SSH_CONFIG_FILE}" \
-      "${HOSTS_SERVERS_FILE}" \
-      "${HOSTS_ALL_FILE}" \
-      "${SCRIPT_DIR}/_log.sh" \
-      "${SCRIPT_DIR}/config/config.sh" \
-      "${SCRIPT_DIR}/install_scripts/install_devtools.sh" \
-      "${SCRIPT_DIR}/install_scripts/install_intel-oneapi.sh" \
-      "${SCRIPT_DIR}/install_scripts/install_io500-sc22.sh" \
-      "${SCRIPT_DIR}/io500-sc22.config-template.daos.ini" \
-      "${SCRIPT_DIR}/hyperconverged_scripts/"*.sh \
-      "${FIRST_CLIENT_IP}:~/"
-
+    if ${HYPERCONVERGED}; then
+      scp -F "${SSH_CONFIG_FILE}" \
+        "${HOSTS_SERVERS_FILE}" \
+        "${HOSTS_ALL_FILE}" \
+        "${SCRIPT_DIR}/_log.sh" \
+        "${SCRIPT_DIR}/config/config.sh" \
+        "${SCRIPT_DIR}/install_scripts/install_devtools.sh" \
+        "${SCRIPT_DIR}/install_scripts/install_intel-oneapi.sh" \
+        "${SCRIPT_DIR}/install_scripts/install_io500-sc22.sh" \
+        "${SCRIPT_DIR}/io500-sc22.config-template.daos.ini" \
+        "${SCRIPT_DIR}/hyperconverged_scripts/"*.sh \
+        "${FIRST_CLIENT_IP}:~/"
+    else
+      scp -F "${SSH_CONFIG_FILE}" \
+        "${HOSTS_SERVERS_FILE}" \
+        "${HOSTS_ALL_FILE}" \
+        "${SCRIPT_DIR}/_log.sh" \
+        "${SCRIPT_DIR}/config/config.sh" \
+        "${SCRIPT_DIR}/hyperconverged_scripts/clean_storage.sh" \
+        "${SCRIPT_DIR}/hyperconverged_scripts/create_pool_and_container.sh" \
+        "${SCRIPT_DIR}/hyperconverged_scripts/destroy_pool_and_container.sh" \
+        "${SCRIPT_DIR}/hyperconverged_scripts/mount_container.sh" \
+        "${SCRIPT_DIR}/hyperconverged_scripts/unmount_container.sh" \
+        "${FIRST_CLIENT_IP}:~/"
+    fi
   fi
 
 
@@ -674,13 +576,13 @@ show_instances() {
 }
 
 check_gvnic() {
-  DAOS_SERVER_NETWORK_TYPE=$(ssh -q -F "${SSH_CONFIG_FILE}" "${FIRST_CLIENT_IP}" "ssh ${DAOS_FIRST_SERVER} 'sudo lshw -class network'" | sed -n "s/^.*product: \(.*\$\)/\1/p")
-  if ! ${HYPERCONVERGED}; then
-    DAOS_CLIENT_NETWORK_TYPE=$(ssh -q -F "${SSH_CONFIG_FILE}" "${FIRST_CLIENT_IP}" "sudo lshw -class network" | sed -n "s/^.*product: \(.*\$\)/\1/p")
-  fi
   log.debug "Network adapters type:"
+  DAOS_SERVER_NETWORK_TYPE=$(ssh -q -F "${SSH_CONFIG_FILE}" "${FIRST_CLIENT_IP}" "ssh ${DAOS_FIRST_SERVER} 'sudo lshw -class network'" | sed -n "s/^.*product: \(.*\$\)/\1/p")
   log.debug "DAOS_SERVER_NETWORK_TYPE = ${DAOS_SERVER_NETWORK_TYPE}"
-  log.debug "DAOS_CLIENT_NETWORK_TYPE = ${DAOS_CLIENT_NETWORK_TYPE}"
+  if ! ${SERVERS_ONLY}; then
+    DAOS_CLIENT_NETWORK_TYPE=$(ssh -q -F "${SSH_CONFIG_FILE}" "${FIRST_CLIENT_IP}" "sudo lshw -class network" | sed -n "s/^.*product: \(.*\$\)/\1/p")
+    log.debug "DAOS_CLIENT_NETWORK_TYPE = ${DAOS_CLIENT_NETWORK_TYPE}"
+  fi
 }
 
 show_run_steps() {

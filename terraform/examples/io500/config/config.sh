@@ -29,21 +29,17 @@
 ####### user vars ############################################################
 ##############################################################################
 
-ID=FIX
+ID=
 PROJECT_ID=FIX
-NETWORK="default"
-SUBNETWORK="default"
-#can be commented out if you just wat to use the gcloud config region
+NETWORK=FIX
+SUBNETWORK=FIX
 REGION=FIX
-REGION="${REGION:-$(gcloud config list --format='value(compute.region)')}"
-#can be commented out if you just wat to use the gcloud config zone
 ZONE=FIX
-ZONE="${ZONE:-$(gcloud config list --format='value(compute.zone)')}"
 
-export BUILD_WORKER_POOL="projects/FIX/locations/FIX/workerPools/FIX"
+export BUILD_WORKER_POOL="projects/WP_PROJECT_NAME/locations/WP_LOCATION/workerPools/WP_NAME"
 
 #can be adjusted based on the number of CPUs on the node spinning up the cluster
-PARALLELISM=96
+PARALLELISM=20
 
 # Server and client instances
 PREEMPTIBLE_INSTANCES=false
@@ -52,53 +48,61 @@ DAOS_ALLOW_INSECURE=true
 
 #used to collect additional monitoring info
 USE_PROMETHEUS=false
-#note - for hyperconverged, just specify the server info
-export HYPERCONVERGED=true
-
+export SERVERS_ONLY=true
 
 # Server(s)
 DAOS_SERVER_INSTANCE_COUNT=56
-export DAOS_SERVER_MACHINE_TYPE=n2d-custom-48-154368
-#export DAOS_SERVER_MACHINE_TYPE=n2-custom-36-154368
+export DAOS_SERVER_MACHINE_TYPE=n2-custom-36-154368
+#export DAOS_SERVER_MACHINE_TYPE=n2d-custom-48-154368
 DAOS_SERVER_DISK_COUNT=16
-DAOS_SERVER_CRT_TIMEOUT=300
-DAOS_SERVER_SCM_SIZE=120
 DAOS_SERVER_GVNIC=true
 DAOS_SERVER_OS_DISK_SIZE="${DAOS_SERVER_OS_DISK_SIZE:-20}"
 DAOS_SERVER_OS_DISK_TYPE="${DAOS_SERVER_OS_DISK_TYPE:-"pd-ssd"}"
-export DAOS_SERVER_OS_FAMILY="daos-server-rocky-linux-8"
-
+export DAOS_SERVER_OS_FAMILY="daos-server-2-2-0-rocky-linux-8"
+export DAOS_SERVER_SOURCE_IMAGE_FAMILY="rocky-linux-8-optimized-gcp"
+export DAOS_SERVER_SOURCE_IMAGE_PROJECT="rocky-linux-cloud"
 
 # Client(s)
+#note - if DAOS_CLIENT_INSTANCE_COUNT=0, there is no need to specify/adjust other DAOS_CLIENT_* variables
 DAOS_CLIENT_INSTANCE_COUNT=0
 #DAOS_CLIENT_INSTANCE_COUNT=200
-export DAOS_CLIENT_MACHINE_TYPE=c2d-standard-16
-#export DAOS_CLIENT_MACHINE_TYPE=c2-standard-16
+export DAOS_CLIENT_MACHINE_TYPE=c2-standard-16
+#export DAOS_CLIENT_MACHINE_TYPE=c2d-standard-16
 DAOS_CLIENT_GVNIC=false
 DAOS_CLIENT_OS_DISK_SIZE="${DAOS_CLIENT_OS_DISK_SIZE:-20}"
 DAOS_CLIENT_OS_DISK_TYPE="${DAOS_CLIENT_OS_DISK_TYPE:-"pd-ssd"}"
 #fix
-export DAOS_CLIENT_OS_FAMILY="daos-client-rocky-linux-8"
+export DAOS_CLIENT_OS_FAMILY="daos-client-2-2-0-rocky-linux-8"
+export DAOS_CLIENT_SOURCE_IMAGE_FAMILY="rocky-linux-8-optimized-gcp"
+export DAOS_CLIENT_SOURCE_IMAGE_PROJECT="rocky-linux-cloud"
 
 # Storage
 PERCENT_OF_SSD_FOR_SCM=2
 
 export DAOS_VERSION="2.2.0"
 #export DAOS_VERSION="2.3.0"
-BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2d"
 
-DAOS_SERVER_BASE_NAME="${DAOS_SERVER_BASE_NAME:-daos-server}"
-DAOS_CLIENT_BASE_NAME="${DAOS_CLIENT_BASE_NAME:-daos-client}"
+BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2"
+#BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2"
 
 ##############################################################################
 ##############################################################################
 ##############################################################################
 
-if [[ "${HYPERCONVERGED}" = true && DAOS_CLIENT_INSTANCE_COUNT -ne 0 ]]; then
-   echo "Error. When HYPERCONVERGED=true, the number of clients must equal 0, not ${DAOS_CLIENT_INSTANCE_COUNT} "; #exit ERR;
+if [[ ("${SERVERS_ONLY}" = true || "${HYPERCONVERGED}" = true) && DAOS_CLIENT_INSTANCE_COUNT -ne 0 ]]; then
+   echo "Error. When SERVERS_ONLY=true, the number of clients must equal 0, not ${DAOS_CLIENT_INSTANCE_COUNT} "; 
+   exit 1;
 else
   echo "okay"
 fi
+
+if [[ "${SERVERS_ONLY}" != true && "${HYPERCONVERGED}" = true ]]; then
+   echo "Error. When HYPERCONVERGED=true then you must set SERVERS_ONLY=true"
+   exit 1;
+else
+  echo "okay"
+fi
+
 
 # Storage, note: formula assumes all SSD volume will be used for a single pool
 GIB_TO_GB_FACTOR=1.07
@@ -107,10 +111,14 @@ SCM_SIZE_TB="$(awk -v ssd_size_tb=${SSD_SIZE_TB} -v percent_ssd_for_scm=${PERCEN
 DAOS_SERVER_SCM_SIZE="$(awk -v scm_size_tb=${SCM_SIZE_TB} -v server_count=${DAOS_SERVER_INSTANCE_COUNT} 'BEGIN {scm_size_per_node_gb = scm_size_tb / server_count * 1000; print scm_size_per_node_gb}')"
 DAOS_POOL_SIZE="$(awk -v nvme_size=${SSD_SIZE_TB} -v scm_size=${SCM_SIZE_TB} 'BEGIN {pool_size = nvme_size + scm_size; print pool_size"TB"}')"
 
+DAOS_SERVER_CRT_TIMEOUT=300
+export HYPERCONVERGED=false
 
 # ------------------------------------------------------------------------------
 # Modify instance base names if ID variable is set
 # ------------------------------------------------------------------------------
+DAOS_SERVER_BASE_NAME="${DAOS_SERVER_BASE_NAME:-daos-server}"
+DAOS_CLIENT_BASE_NAME="${DAOS_CLIENT_BASE_NAME:-daos-client}"
 if [[ -n ${ID} ]]; then
     DAOS_SERVER_BASE_NAME="${DAOS_SERVER_BASE_NAME}-${ID}"
     DAOS_CLIENT_BASE_NAME="${DAOS_CLIENT_BASE_NAME}-${ID}"
@@ -158,4 +166,3 @@ export TF_VAR_client_os_family="${DAOS_CLIENT_OS_FAMILY}"
 export TF_VAR_client_gvnic="${DAOS_CLIENT_GVNIC}"
 
 export TF_VAR_daos_version="${DAOS_VERSION}"
-
