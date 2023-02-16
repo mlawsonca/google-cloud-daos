@@ -39,6 +39,12 @@ variable "use_iap" {
 variable "machine_type" {
   type = string
 }
+variable "source_image_family" {
+  type = string
+}
+variable "source_image_project_id" {
+  type = string
+}
 
 source "googlecompute" "daos-server-centos-7" {
   disk_size               = "20"
