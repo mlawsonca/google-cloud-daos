@@ -90,17 +90,17 @@ BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2"
 ##############################################################################
 
 if [[ ("${SERVERS_ONLY}" = true || "${HYPERCONVERGED}" = true) && DAOS_CLIENT_INSTANCE_COUNT -ne 0 ]]; then
-   echo "Error. When SERVERS_ONLY=true, the number of clients must equal 0, not ${DAOS_CLIENT_INSTANCE_COUNT} "; 
-   exit 1;
+    echo "Error. When SERVERS_ONLY=true, the number of clients must equal 0, not ${DAOS_CLIENT_INSTANCE_COUNT} "; 
+    exit 1;
 else
-  echo "okay"
+    echo "okay"
 fi
 
 if [[ "${SERVERS_ONLY}" != true && "${HYPERCONVERGED}" = true ]]; then
-   echo "Error. When HYPERCONVERGED=true then you must set SERVERS_ONLY=true"
-   exit 1;
+    echo "Error. When HYPERCONVERGED=true then you must set SERVERS_ONLY=true"
+    exit 1;
 else
-  echo "okay"
+    echo "okay"
 fi
 
 
@@ -108,7 +108,11 @@ fi
 GIB_TO_GB_FACTOR=1.07
 SSD_SIZE_TB="$(awk -v disk_count=${DAOS_SERVER_DISK_COUNT} -v server_count=${DAOS_SERVER_INSTANCE_COUNT} -v gib_to_gb_factor=${GIB_TO_GB_FACTOR} 'BEGIN {nvme_size = 375 * disk_count * server_count * gib_to_gb_factor / 1000; print nvme_size}')"
 SCM_SIZE_TB="$(awk -v ssd_size_tb=${SSD_SIZE_TB} -v percent_ssd_for_scm=${PERCENT_OF_SSD_FOR_SCM} 'BEGIN {scm_size = ssd_size_tb / (100/percent_ssd_for_scm); print scm_size}')"
-DAOS_SERVER_SCM_SIZE="$(awk -v scm_size_tb=${SCM_SIZE_TB} -v server_count=${DAOS_SERVER_INSTANCE_COUNT} 'BEGIN {scm_size_per_node_gb = scm_size_tb / server_count * 1000; print scm_size_per_node_gb}')"
+if [[ ${DAOS_SERVER_INSTANCE_COUNT} == 0 ]]; then
+    DAOS_SERVER_SCM_SIZE=0
+else
+    DAOS_SERVER_SCM_SIZE="$(awk -v scm_size_tb=${SCM_SIZE_TB} -v server_count=${DAOS_SERVER_INSTANCE_COUNT} 'BEGIN {scm_size_per_node_gb = scm_size_tb / server_count * 1000; print scm_size_per_node_gb}')"
+fi
 DAOS_POOL_SIZE="$(awk -v nvme_size=${SSD_SIZE_TB} -v scm_size=${SCM_SIZE_TB} 'BEGIN {pool_size = nvme_size + scm_size; print pool_size"TB"}')"
 
 DAOS_SERVER_CRT_TIMEOUT=300
