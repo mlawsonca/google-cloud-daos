@@ -181,7 +181,7 @@ ior_prepare() {
   export MFU_POSIX_TS=1
   #account for the fact that hyperthreads are enabled -> divide by 2 to get 1 client per physical core
   export NP=$(( DAOS_CLIENT_INSTANCE_COUNT * $(nproc --all) / 2 ))
-  export PPN=$(nproc --all / 2)
+  export PPN=$(( $(nproc --all) / 2  ))
 
   # Prepare final results directory for the current run
   TIMESTAMP=$(date "+%Y-%m-%d_%H%M%S")
