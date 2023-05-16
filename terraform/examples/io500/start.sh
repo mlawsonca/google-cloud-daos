@@ -293,9 +293,9 @@ build_disk_images() {
   # Build the DAOS disk images
   log.section "IO500 Disk Images"
   if ${SERVERS_ONLY}; then
-    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type server -i false
+    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type server -i true
   else
-    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type all -i false
+    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type all -i true
   fi
 }
 
@@ -321,9 +321,7 @@ configure_first_client_ip() {
 
     # Check to see if first client instance has an external IP.
     # If it does, then don't attempt to add an external IP again.
-    NAT_NETWORK=$(gcloud compute routers nats list \
-      "--router=nat-router-us-central1" \
-      "--region=us-central1")
+    NAT_NETWORK=$(gcloud compute routers list)
 
     if [[ -z "${NAT_NETWORK}" ]]; then
       log "Add external IP to first ${node_type}"

@@ -33,10 +33,8 @@ ID=
 PROJECT_ID=FIX
 NETWORK=FIX
 SUBNETWORK=FIX
-REGION=FIX
-ZONE=FIX
-
-export BUILD_WORKER_POOL="projects/WP_PROJECT_NAME/locations/WP_LOCATION/workerPools/WP_NAME"
+GCP_REGION=FIX
+GCP_ZONE=FIX
 
 #can be adjusted based on the number of CPUs on the node spinning up the cluster
 PARALLELISM=20
@@ -138,8 +136,8 @@ export TF_VAR_project_id="${PROJECT_ID}"
 export TF_VAR_network="${NETWORK}"
 export TF_VAR_subnetwork="${SUBNETWORK}"
 export TF_VAR_subnetwork_project="${TF_VAR_project_id}"
-export TF_VAR_region="${REGION}"
-export TF_VAR_zone="${ZONE}"
+export TF_VAR_region="${GCP_REGION}"
+export TF_VAR_zone="${GCP_ZONE}"
 export TF_VAR_allow_insecure="${DAOS_ALLOW_INSECURE}"
 # Servers
 export TF_VAR_server_preemptible=${PREEMPTIBLE_INSTANCES}
