@@ -56,9 +56,9 @@ DAOS_SERVER_DISK_COUNT=16
 DAOS_SERVER_GVNIC=true
 DAOS_SERVER_OS_DISK_SIZE="${DAOS_SERVER_OS_DISK_SIZE:-20}"
 DAOS_SERVER_OS_DISK_TYPE="${DAOS_SERVER_OS_DISK_TYPE:-"pd-ssd"}"
-export DAOS_SERVER_OS_FAMILY="daos-server-2-2-0-rocky-linux-8"
-export DAOS_SERVER_SOURCE_IMAGE_FAMILY="rocky-linux-8-optimized-gcp"
-export DAOS_SERVER_SOURCE_IMAGE_PROJECT_ID="rocky-linux-cloud"
+export DAOS_SERVER_OS_FAMILY="daos-server-2-3-0-rocky-linux-8"
+export DAOS_SERVER_SOURCE_IMAGE_FAMILY="hpc-rocky-linux-8"
+export DAOS_SERVER_SOURCE_IMAGE_PROJECT_ID="cloud-hpc-image-public"
 
 # Client(s)
 #note - if DAOS_CLIENT_INSTANCE_COUNT=0, there is no need to specify/adjust other DAOS_CLIENT_* variables
@@ -70,15 +70,15 @@ DAOS_CLIENT_GVNIC=false
 DAOS_CLIENT_OS_DISK_SIZE="${DAOS_CLIENT_OS_DISK_SIZE:-20}"
 DAOS_CLIENT_OS_DISK_TYPE="${DAOS_CLIENT_OS_DISK_TYPE:-"pd-ssd"}"
 #fix
-export DAOS_CLIENT_OS_FAMILY="daos-client-2-2-0-rocky-linux-8"
-export DAOS_CLIENT_SOURCE_IMAGE_FAMILY="rocky-linux-8-optimized-gcp"
-export DAOS_CLIENT_SOURCE_IMAGE_PROJECT_ID="rocky-linux-cloud"
+export DAOS_CLIENT_OS_FAMILY="daos-client-2-3-0-rocky-linux-8"
+export DAOS_CLIENT_SOURCE_IMAGE_FAMILY="hpc-rocky-linux-8"
+export DAOS_CLIENT_SOURCE_IMAGE_PROJECT_ID="cloud-hpc-image-public"
 
 # Storage
 PERCENT_OF_SSD_FOR_SCM=2
 
-export DAOS_VERSION="2.2.0"
-#export DAOS_VERSION="2.3.0"
+#export DAOS_VERSION="2.2.0"
+export DAOS_VERSION="2.3.0"
 
 BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2"
 #BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2"
