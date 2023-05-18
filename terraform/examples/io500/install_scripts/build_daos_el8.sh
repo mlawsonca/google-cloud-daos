@@ -13,9 +13,8 @@ git clone --recurse-submodules https://github.com/daos-stack/daos.git  # --branc
 
 pushd daos
 
-git checkout c63f9536
+git checkout --recurse-submodules v2.3.107-tb -b v2.3.107-tb
 
-#git rev-parse HEAD
 dnf config-manager --save --setopt=assumeyes=True
 utils/scripts/install-el8.sh
 

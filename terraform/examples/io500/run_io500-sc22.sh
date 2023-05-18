@@ -142,11 +142,19 @@ show_storage_usage() {
 create_pool() {
   log.info "Create pool: label=${DAOS_POOL_LABEL} size=${DAOS_POOL_SIZE}"
 
-  # TODO: Don't hardcode tier-ratio to 2 (-t 2)
-  dmg pool create -z "${DAOS_POOL_SIZE}" -t 2 -u "${USER}" --label="${DAOS_POOL_LABEL}"
+  if [[ ${DAOS_VERSION} == "2.3.0" ]]; then
+    # TODO: Don't hardcode tier-ratio to 2 (-t 2)
+    dmg pool create -z "${DAOS_POOL_SIZE}" -t 2 -u "${USER}" "${DAOS_POOL_LABEL}"
 
-  echo "Set pool property: reclaim=disabled"
-  dmg pool set-prop "${DAOS_POOL_LABEL}" --name=reclaim --value=disabled
+    echo "Set pool property: reclaim=disabled"
+    dmg pool set-prop "${DAOS_POOL_LABEL}" "reclaim:disabled"
+  else
+    # TODO: Don't hardcode tier-ratio to 2 (-t 2)
+    dmg pool create -z "${DAOS_POOL_SIZE}" -t 2 -u "${USER}" --label="${DAOS_POOL_LABEL}"
+
+    echo "Set pool property: reclaim=disabled"
+    dmg pool set-prop "${DAOS_POOL_LABEL}" --name=reclaim --value=disabled
+  fi
 
   echo "Pool created successfully"
   dmg pool query "${DAOS_POOL_LABEL}"
