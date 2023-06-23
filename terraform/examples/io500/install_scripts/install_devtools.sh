@@ -47,7 +47,7 @@ install_pkgs_centos7() {
 
   log.info "Installing additional packages for almalinux_8|centos_8|rhel_8|rocky_8"
   yum install -y bzip2-devel clustershell git jq \
-    libarchive-devel libuuid-devel openssl-devel patch rsync wget
+    libarchive-devel libuuid-devel openssl-devel patch rsync wget nano
 }
 
 install_pkgs_centos8() {
@@ -59,7 +59,7 @@ install_pkgs_centos8() {
   log.info "Installing additional packages"
   dnf install -y bzip2-devel clustershell \
   gcc-toolset-9-gcc gcc-toolset-9-gcc-c++ git jq \
-  libarchive-devel libuuid-devel openssl-devel patch rsync wget
+  libarchive-devel libuuid-devel openssl-devel patch rsync wget nano
 }
 
 install_pkgs()  {

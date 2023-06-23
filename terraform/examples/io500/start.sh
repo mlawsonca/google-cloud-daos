@@ -293,9 +293,9 @@ build_disk_images() {
   # Build the DAOS disk images
   log.section "IO500 Disk Images"
   if ${SERVERS_ONLY}; then
-    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type server -i true
+    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type server -i false
   else
-    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type all -i true
+    "${SCRIPT_DIR}/build_daos_io500_images.sh" --type all -i false
   fi
 }
 

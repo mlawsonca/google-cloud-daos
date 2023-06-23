@@ -29,7 +29,7 @@
 ####### user vars ############################################################
 ##############################################################################
 
-ID=
+ID=$(whoami)
 PROJECT_ID=FIX
 NETWORK=FIX
 SUBNETWORK=FIX
@@ -39,6 +39,10 @@ GCP_ZONE=FIX
 #can be adjusted based on the number of CPUs on the node spinning up the cluster
 PARALLELISM=20
 
+#may be needed depending on your environment setup
+export BUILD_WORKER_POOL="projects/WP_PROJECT_NAME/locations/WP_LOCATION/workerPools/WP_NAME"
+DAOS_BUILD_TYPE="${DAOS_BUILD_TYPE:-release}"
+
 # Server and client instances
 PREEMPTIBLE_INSTANCES=false
 SSH_USER="daos-user"
@@ -46,31 +50,30 @@ DAOS_ALLOW_INSECURE=true
 
 #used to collect additional monitoring info
 USE_PROMETHEUS=false
-export SERVERS_ONLY=true
+export SERVERS_ONLY=false
 
 # Server(s)
-DAOS_SERVER_INSTANCE_COUNT=56
+DAOS_SERVER_INSTANCE_COUNT=1
 export DAOS_SERVER_MACHINE_TYPE=n2-custom-36-154368
 #export DAOS_SERVER_MACHINE_TYPE=n2d-custom-48-154368
 DAOS_SERVER_DISK_COUNT=16
 DAOS_SERVER_GVNIC=true
 DAOS_SERVER_OS_DISK_SIZE="${DAOS_SERVER_OS_DISK_SIZE:-20}"
 DAOS_SERVER_OS_DISK_TYPE="${DAOS_SERVER_OS_DISK_TYPE:-"pd-ssd"}"
-export DAOS_SERVER_OS_FAMILY="daos-server-2-3-0-rocky-linux-8"
+export DAOS_SERVER_OS_FAMILY="daos-server-2-3-108-tb-el8-${ID}"
 export DAOS_SERVER_SOURCE_IMAGE_FAMILY="hpc-rocky-linux-8"
 export DAOS_SERVER_SOURCE_IMAGE_PROJECT_ID="cloud-hpc-image-public"
 
 # Client(s)
 #note - if DAOS_CLIENT_INSTANCE_COUNT=0, there is no need to specify/adjust other DAOS_CLIENT_* variables
-DAOS_CLIENT_INSTANCE_COUNT=0
-#DAOS_CLIENT_INSTANCE_COUNT=200
-export DAOS_CLIENT_MACHINE_TYPE=c2-standard-16
-#export DAOS_CLIENT_MACHINE_TYPE=c2d-standard-16
-DAOS_CLIENT_GVNIC=false
+DAOS_CLIENT_INSTANCE_COUNT=1
+export DAOS_CLIENT_MACHINE_TYPE=c2-standard-30
+#export DAOS_CLIENT_MACHINE_TYPE=c2d-standard-30
+DAOS_CLIENT_GVNIC=true
 DAOS_CLIENT_OS_DISK_SIZE="${DAOS_CLIENT_OS_DISK_SIZE:-20}"
 DAOS_CLIENT_OS_DISK_TYPE="${DAOS_CLIENT_OS_DISK_TYPE:-"pd-ssd"}"
 #fix
-export DAOS_CLIENT_OS_FAMILY="daos-client-2-3-0-rocky-linux-8"
+export DAOS_CLIENT_OS_FAMILY="daos-client-2-3-108-tb-el8-${ID}"
 export DAOS_CLIENT_SOURCE_IMAGE_FAMILY="hpc-rocky-linux-8"
 export DAOS_CLIENT_SOURCE_IMAGE_PROJECT_ID="cloud-hpc-image-public"
 
@@ -80,8 +83,8 @@ PERCENT_OF_SSD_FOR_SCM=2
 #export DAOS_VERSION="2.2.0"
 export DAOS_VERSION="2.3.0"
 
-BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2"
-#BASE_CONFIG_ID="GCP-200C-56S16d-GVNIC-n2"
+BASE_CONFIG_ID="GCP-1C-1S16d-GVNIC-n2"
+#BASE_CONFIG_ID="GCP-1C-1S16d-GVNIC-n2"
 
 ##############################################################################
 ##############################################################################
@@ -119,11 +122,11 @@ export HYPERCONVERGED=false
 # ------------------------------------------------------------------------------
 # Modify instance base names if ID variable is set
 # ------------------------------------------------------------------------------
-DAOS_SERVER_BASE_NAME="${DAOS_SERVER_BASE_NAME:-daos-server}"
-DAOS_CLIENT_BASE_NAME="${DAOS_CLIENT_BASE_NAME:-daos-client}"
+DAOS_SERVER_BASE_NAME="${DAOS_SERVER_BASE_NAME:-$DAOS_SERVER_OS_FAMILY}"
+DAOS_CLIENT_BASE_NAME="${DAOS_CLIENT_BASE_NAME:-$DAOS_CLIENT_OS_FAMILY}"
 if [[ -n ${ID} ]]; then
-    DAOS_SERVER_BASE_NAME="${DAOS_SERVER_BASE_NAME}-${ID}"
-    DAOS_CLIENT_BASE_NAME="${DAOS_CLIENT_BASE_NAME}-${ID}"
+    DAOS_SERVER_BASE_NAME="${DAOS_SERVER_BASE_NAME}"
+    DAOS_CLIENT_BASE_NAME="${DAOS_CLIENT_BASE_NAME}"
 fi
 
 # ------------------------------------------------------------------------------

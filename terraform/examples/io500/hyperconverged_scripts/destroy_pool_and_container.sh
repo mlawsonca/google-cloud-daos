@@ -29,9 +29,18 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 source "${SCRIPT_DIR}/_log.sh"
 export LOG_LEVEL=INFO
 
+CONFIG_FILE="${SCRIPT_DIR}/config.sh"
+
+# Source config file to load variables
+if [[ -f "${CONFIG_FILE}" ]]; then
+  # shellcheck source=/dev/null
+  source "${CONFIG_FILE}"
+fi
+
+
 ####### user vars ########
 DAOS_POOL_LABEL="${DAOS_POOL_LABEL:-pool}"
-#DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-cont}"
+DAOS_CONT_LABEL="${DAOS_CONT_LABEL:-cont}"
 DFUSE_DIR="${DFUSE_DIR:-"${HOME}/daos_fuse"}"
 ##########################
 
@@ -53,10 +62,18 @@ unmount_defuse() {
   fi
 }
 
+destroy_container() {
+  log.info "Attempting to destroy DAOS container \"${DAOS_CONT_LABEL}\""
+  daos container destroy ${DAOS_POOL_LABEL} ${DAOS_CONT_LABEL}
+}
+
 destroy_pool() {
   log.info "Attempting to destroy DAOS pool \"${DAOS_POOL_LABEL}\""
   dmg pool destroy ${DAOS_POOL_LABEL}
 }
 
 unmount_defuse
+if [[ ${DAOS_VERSION} == "2.3.0" ]]; then
+  destroy_container
+fi
 destroy_pool

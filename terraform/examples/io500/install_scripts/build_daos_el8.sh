@@ -2,7 +2,10 @@
 
 # runas root
 
-yum -y install dnf git virtualenv
+#note - config.sh isn't being exported to here
+export DAOS_BUILD_TYPE="${DAOS_BUILD_TYPE:-release}
+
+yum -y install dnf git virtualenv nano
 
 dnf -y install epel-release dnf-plugins-core
 dnf config-manager --enable powertools
@@ -13,7 +16,7 @@ git clone --recurse-submodules https://github.com/daos-stack/daos.git  # --branc
 
 pushd daos
 
-git checkout --recurse-submodules v2.3.107-tb -b v2.3.107-tb
+git checkout --recurse-submodules v2.3.108-tb -b v2.3.108-tb
 
 dnf config-manager --save --setopt=assumeyes=True
 utils/scripts/install-el8.sh
@@ -36,16 +39,16 @@ pip install defusedxml \
 # pip install -r requirements.txt
 
 # --no-rpath
-scons --jobs="$(nproc --all)" --build-deps=only PREFIX=/usr TARGET_TYPE=release BUILD_TYPE=release
+scons --jobs="$(nproc --all)" --build-deps=only PREFIX=/usr TARGET_TYPE="${DAOS_BUILD_TYPE}" BUILD_TYPE="${DAOS_BUILD_TYPE}"
 
-ln -s /usr/prereq/release/spdk/lib/librte_eal.so.22.0 /usr/lib/librte_eal.so.22
-ln -s /usr/prereq/release/spdk/lib/librte_kvargs.so.22.0 /usr/lib/librte_kvargs.so.22
-ln -s /usr/prereq/release/spdk/lib/librte_telemetry.so.22.0 /usr/lib/librte_telemetry.so.22
-ln -s /usr/prereq/release/spdk/lib/librte_ring.so.22.0 /usr/lib/librte_ring.so.22
-ln -s /usr/prereq/release/spdk/lib/librte_pci.so.22.0 /usr/lib/librte_pci.so.22
+ln -s /usr/prereq/"${DAOS_BUILD_TYPE}"/spdk/lib/librte_eal.so.22.0 /usr/lib/librte_eal.so.22
+ln -s /usr/prereq/"${DAOS_BUILD_TYPE}"/spdk/lib/librte_kvargs.so.22.0 /usr/lib/librte_kvargs.so.22
+ln -s /usr/prereq/"${DAOS_BUILD_TYPE}"/spdk/lib/librte_telemetry.so.22.0 /usr/lib/librte_telemetry.so.22
+ln -s /usr/prereq/"${DAOS_BUILD_TYPE}"/spdk/lib/librte_ring.so.22.0 /usr/lib/librte_ring.so.22
+ln -s /usr/prereq/"${DAOS_BUILD_TYPE}"/spdk/lib/librte_pci.so.22.0 /usr/lib/librte_pci.so.22
 
 # --no-rpath
-scons --jobs="$(nproc --all)" install PREFIX=/usr TARGET_TYPE=release BUILD_TYPE=release CONF_DIR=/etc/daos
+scons --jobs="$(nproc --all)" install PREFIX=/usr TARGET_TYPE="${DAOS_BUILD_TYPE}" BUILD_TYPE="${DAOS_BUILD_TYPE}" CONF_DIR=/etc/daos
 
 cp utils/systemd/daos_agent.service /etc/systemd/system
 cp utils/systemd/daos_server.service /etc/systemd/system
@@ -64,4 +67,4 @@ chown -R daos_server.daos_server /var/run/daos_server
 chown daos_agent.daos_agent /var/run/daos_agent
 
 yum -y install kmod pciutils
-/usr/prereq/release/spdk/share/spdk/scripts/setup.sh
+/usr/prereq/"${DAOS_BUILD_TYPE}"/spdk/share/spdk/scripts/setup.sh
