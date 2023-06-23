@@ -46,6 +46,7 @@ module "daos_server" {
   gvnic               = var.server_gvnic
   allow_insecure      = var.allow_insecure
   daos_version        = var.daos_version
+  build_type          = var.build_type
 }
 
 module "daos_client" {

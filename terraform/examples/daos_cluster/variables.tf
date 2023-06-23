@@ -193,6 +193,12 @@ variable "server_pools" {
   }))
 }
 
+variable "build_type" {
+  description = "What DAOS build type is being used"
+  default     = "release"
+  type        = string
+}
+
 variable "daos_version" {
   description = "What version of DAOS is being used"
   default     = "2.2.0"

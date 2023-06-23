@@ -282,6 +282,7 @@ install_daos() {
 main() {
   opts "$@"
   set_os_specific_vars
+  $PKG_MGR clean all
   install_epel
   install_misc_pkgs
   if [[ ${DAOS_VERSION} != "2.3.0" ]]; then

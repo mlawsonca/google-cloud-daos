@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+variable "build_type" {
+  description = "the DAOS build type"
+  type = string
+}
 variable "project_id" {
   description = "The GCP project to use "
   type        = string

@@ -15,6 +15,7 @@
  */
 
 locals {
+  build_type         = var.build_type
   daos_version       = var.daos_version
   os_project         = var.os_project != null ? var.os_project : var.project_id
   subnetwork_project = var.subnetwork_project != null ? var.subnetwork_project : var.project_id
@@ -113,6 +114,7 @@ locals {
        storage_format_content   = local.storage_format_content
        pool_cont_create_content = local.pool_cont_create_content
        daos_version             = local.daos_version
+       build_type               = local.build_type
      }
    )
 }

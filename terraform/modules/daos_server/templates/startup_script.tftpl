@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+echo "BUILD_TYPE: ${build_type}"
+
 METADATA_URL="http://metadata.google.internal/computeMetadata/v1/instance/attributes"
 %{ if "${daos_version}" == "2.3.0" }
   DAOS_SERVER_SYSTEMD_FILE="/etc/systemd/system/daos_server.service"
@@ -43,9 +45,9 @@ sed -i "s/User=daos_server/User=root/; s/Group=daos_server/Group=root/" $${DAOS_
   chmod 4755 /usr/bin/daos_server_helper || true
   chmod 4755 /usr/bin/daos_admin || true
   mkdir -p /var/run/daos_server
-  ln -s /usr/prereq/release/spdk/include /usr/share/spdk/include || true
-  ln -s /usr/prereq/release/spdk/scripts /usr/share/spdk/scripts || true
-  ln -s /usr/prereq/release/spdk/share/spdk /usr/share || true
+  ln -s /usr/prereq/${build_type}/spdk/include /usr/share/spdk/include || true
+  ln -s /usr/prereq/${build_type}/spdk/scripts /usr/share/spdk/scripts || true
+  ln -s /usr/prereq/${build_type}/spdk/share/spdk /usr/share || true
   /usr/share/daos/control/setup_spdk.sh
 %{ endif }
 
@@ -55,8 +57,5 @@ systemctl start daos_server
 
 systemctl enable daos_agent
 systemctl start daos_agent
-
-${ storage_format_content }
-${ pool_cont_create_content }
 
 echo "END: DAOS Server Startup Script"
